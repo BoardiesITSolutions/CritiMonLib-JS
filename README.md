@@ -1,14 +1,14 @@
 <img src="https://critimon.boardiesitsolutions.com/images/logo.png" width="150">
 
-#Introduction
+# Introduction
 The CritiMonJS Library allows you to send both handled and unhandled crashes to the CritiMon Crash
 Monitoring service (https://critimon.boardiesitsolutions.com). 
 
-#Prerequisites
+# Prerequisites
 The only prerequisites is that [Jquery](https://jquery.com) has to be loaded before attempting to 
 initialise CritiMon. 
 
-#Installing
+# Installing
 In the download from github, there should be a single file called critimon.js. This needs
 too go somewhere within your project. 
 
