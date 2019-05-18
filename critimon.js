@@ -308,7 +308,7 @@ function CritiMon(api_key, app_id, app_version)
 
     function sendCritiMonRequest(postArray, api_endpoint, critimon, callbackResult)
     {
-        var url = "https://critimon-staging-engine.boardiesitsolutions.com/";
+        var url = "https://critimon-engine.boardiesitsolutions.com/";
         url += api_endpoint;
 
         $.ajax({
