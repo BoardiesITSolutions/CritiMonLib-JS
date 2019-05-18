@@ -6,6 +6,8 @@ function CritiMon(api_key, app_id, app_version)
         app_version: app_version,
         cookie: "",
         device_id: "",
+        is_initialised: false,
+        crash_queue: [],
         initialise: function(resultCallback) {
 
             var deviceIDCookie = getCookie("DeviceID");
@@ -27,7 +29,29 @@ function CritiMon(api_key, app_id, app_version)
             console.log(ex);
             sendCrash(ex, severity, customProperties);
         }
+
+
     });
+
+    window.onerror = function(msg, url, lineNo, columnNo, error){
+        console.log("onerror triggered");
+        if (critimon.is_initialised) {
+            unhandledErrorHandler(msg, url, lineNo, columnNo, error);
+        }
+        else
+        {
+            critimon.crash_queue.push({
+                msg: msg,
+                url: url,
+                lineNo: lineNo,
+                columnNo: columnNo,
+                error: error,
+                type: "unhandled"
+            });
+
+            console.warn("Got crash while not initialised");
+        }
+    };
 
     function setCookie(key, value, expire)
     {
@@ -67,7 +91,7 @@ function CritiMon(api_key, app_id, app_version)
         if ((typeof critimon.api_key === typeof undefined || typeof critimon.app_id === typeof undefined)
             || critimon.api_key.length === 0 || critimon.app_id.length === 0)
         {
-            reject("CritiMon api_key and app_id is required. Pass these in when creating the critimon object");
+            throw "CritiMon api_key and app_id is required. Pass these in when creating the critimon object";
         }
         else
         {
@@ -81,12 +105,28 @@ function CritiMon(api_key, app_id, app_version)
             {
                 postArray.DeviceID = generateRandomeDeviceID();
             }
+            postArray.AppVersion = critimon.app_version;
             critimon.device_id = postArray.DeviceID;
             setCookie("DeviceID", postArray.DeviceID, false);
             sendCritiMonRequest(postArray, "initialise", critimon, function(result){
-                window.onerror = function(msg, url, lineNo, columnNo, error){
-                    unhandledErrorHandler(msg, url, lineNo, columnNo, error);
-                };
+                critimon.is_initialised = true;
+                if (critimon.crash_queue.length > 0)
+                {
+                    console.warn("Crashes available in queue - will send them now initialsied");
+                    for (var i = 0; i < critimon.crash_queue.length; i++)
+                    {
+                        var crash = critimon.crash_queue[i];
+                        if (crash.type === "unhandled")
+                        {
+                            unhandledErrorHandler(crash.msg, crash.url, crash.lineNo, crash.columnNo, crash.error);
+                        }
+                        else
+                        {
+                            sendCrash(crash.ex, crash.severity, crash.customProperties);
+                        }
+                    }
+                    critimon.crash_queue.clear();
+                }
                 resultCallback(result);
             });
         }
@@ -94,17 +134,21 @@ function CritiMon(api_key, app_id, app_version)
 
     function unhandledErrorHandler(msg, url, lineNo, columnNo, error)
     {
-        console.log("unhandled error: Msg: " + msg);
-        console.log("Unhandled error: Url: " + url);
-        console.log("Unhandled error: Line No: " + lineNo);
-        console.log("Unhandled error: Column No: " + columnNo);
-        console.log("Unhandled error: Error: " + error);
-
         sendUnhandledCrash(msg, url, lineNo, columnNo, error, "Critical", "Unhandled");
     }
 
     function sendCrash(ex, severity, customProperties)
     {
+        if (!critimon.is_initialised)
+        {
+            critimon.crash_queue.push({
+                ex: ex,
+                severity: severity,
+                customProperties: customProperties,
+                type: "handled"
+            });
+            return;
+        }
         //Validate the crash severity
         switch (severity)
         {
@@ -264,7 +308,7 @@ function CritiMon(api_key, app_id, app_version)
 
     function sendCritiMonRequest(postArray, api_endpoint, critimon, callbackResult)
     {
-        var url = "http://192.168.1.96:500/";
+        var url = "https://critimon-staging-engine.boardiesitsolutions.com/";
         url += api_endpoint;
 
         $.ajax({
