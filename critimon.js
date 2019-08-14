@@ -1,3 +1,10 @@
+/**
+ * Copyright (C) Chris Board - Boardies IT Solutions
+ * August 2019
+ * https://critimon.com
+ * https://support.boardiesitsolutions.com
+ */
+
 function CritiMon(api_key, app_id, app_version)
 {
     var critimon = new Object({
@@ -20,8 +27,8 @@ function CritiMon(api_key, app_id, app_version)
             {
                 critimon.cookie = sessionIDCookie;
             }
-            initialiseCritimon(function (){
-                resultCallback();
+            initialiseCritimon(function (result){
+                resultCallback(result);
             });
 
         },
@@ -160,6 +167,7 @@ function CritiMon(api_key, app_id, app_version)
             default:
                 throw "Invalid Crash Severity provided";
         }
+
         var lines = ex.toString().split(/\r?\n/);
         var msg = lines[0];
         var postArray = { };
@@ -183,6 +191,7 @@ function CritiMon(api_key, app_id, app_version)
 
         //Now we have a stack get the line number
         postArray.LineNo = getLineNoFromStacktrace(postArray.Stacktrace);
+        postArray.JSFile = getJSFileFromStacktrace(postArray.Stacktrace);
 
         postArray.VersionName = critimon.app_version;
 
@@ -194,7 +203,7 @@ function CritiMon(api_key, app_id, app_version)
         postArray.Browser = browserDetails.browser;
         postArray.BrowserVersion = browserDetails.version;
         postArray.DeviceType = "Javascript";
-        postArray.Url = window.location.href;
+
 
         if (typeof customProperties !== typeof undefined && customProperties !== null)
         {
@@ -221,6 +230,7 @@ function CritiMon(api_key, app_id, app_version)
 
     function sendUnhandledCrash(msg, url, lineNo, columnNo, error, crashSeverity, crashType)
     {
+        console.log("Crash URL: " + url);
         //Validate the crash severity
         switch (crashSeverity)
         {
@@ -264,6 +274,7 @@ function CritiMon(api_key, app_id, app_version)
         postArray.VersionName = critimon.app_version;
         postArray.ScreenResolution = screen.width + " x " + screen.height;
         postArray.BrowserWidthHeight = $(window).width() + " x " + $(window).height();
+        postArray.JSFile = url.replace(window.location.hostname, "").replace("http://", "").replace("https://", "");
 
         var browserDetails = identifyBrowser();
         postArray.Browser = browserDetails.browser;
@@ -280,13 +291,15 @@ function CritiMon(api_key, app_id, app_version)
     function returnStacktrace()
     {
         var stack = new Error().stack;
+        console.log("Stacktrace below");
+        console.log(stack);
         var splitStack = stack.split(/\r?\n/);
 
         //Rebuild into a proper string
         var stack = "";
         for (var i = 0; i < splitStack.length; i++)
         {
-            if (i === 1 || i === 2 || i === 3)continue;
+            if (splitStack[i].indexOf("critimon.js") >= 0) continue;
 
             stack += splitStack[i] + "\r\n";
         }
@@ -306,9 +319,27 @@ function CritiMon(api_key, app_id, app_version)
         return lineNo;
     }
 
+    function getJSFileFromStacktrace(stack)
+    {
+        var stackSplit = stack.split(/\r?\n/);
+        if (stackSplit.length >= 1) {
+            var lineWithJSError = stackSplit[1];
+            var jsLoc = lineWithJSError.substr(lineWithJSError.indexOf("(")+1);
+            jsLoc = jsLoc.replace("http://", "").replace("https://", "");
+            jsLoc = jsLoc.substr(0, jsLoc.indexOf(":"));
+            jsLoc = jsLoc.replace(window.location.hostname, "");
+
+            return jsLoc;
+        }
+        else
+        {
+            return "N/A";
+        }
+    }
+
     function sendCritiMonRequest(postArray, api_endpoint, critimon, callbackResult)
     {
-        var url = "https://critimon-staging-engine.boardiesitsolutions.com/";
+        var url = "https://engine.critimon.com/";
         url += api_endpoint;
 
         $.ajax({
@@ -327,6 +358,11 @@ function CritiMon(api_key, app_id, app_version)
                 {
                     critimon.cookie = xhr.getResponseHeader("session_id");
                     setCookie("session_id", critimon.cookie, true);
+                }
+                if (object.result === 5) //Undergoing maintenance
+                {
+                    initialiseCritimon(callbackResult);
+                    return;
                 }
                 if (callbackResult !== null)
                 {
