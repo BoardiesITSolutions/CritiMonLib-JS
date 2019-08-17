@@ -1,8 +1,4 @@
-<img src="https://critimon.boardiesitsolutions.com/images/logo.png" width="150">
-
-# Notice
-The master is currently not supported by the service. We are launching a new version of CritiMon very
-soon at which point this library will be tagged and ready for use
+<img src="https://critimon.com/images/logo.png" width="150">
 
 # Introduction
 The CritiMonJS Library allows you to send both handled and unhandled crashes to the CritiMon Crash
